@@ -11,13 +11,15 @@ import time
 
 import math
 
+import random
+
 ##--------------------Global Variables--------------------##
 
 DNDBot = discord.Client()  # Initialize Client
 dndbot = commands.Bot(command_prefix="-")  # Initialize client bot
 dndbot.remove_command("help")
 
-versionnumber = "Beta 0.8"
+versionnumber = "Beta 0.11"
 
 ##--------------------Global Functions--------------------##
 
@@ -146,6 +148,58 @@ async def stats(ctx, *args):
 
                         await ctx.send(embed=embed)
 
+## Dice roller (since Bogue doesn't like the other one)
+@dndbot.event
+async def on_message(message):
+        rolls = []
+        i = 0
+        total = 0
+        modifier = ''
+
+        if message.content[0:2] == '-r':
+
+                try:
+                        export = message.content[2:]
+                        numbers = export.split('d')
+                        numbers2 = numbers[1].split(' ')
+                        
+                        roll = int(numbers[0])
+                        dice = int(numbers2[0])
+                        
+                        if len(numbers2) > 1:
+                                modifier = numbers2[1]
+
+                        if int(numbers[0]) > 24:
+                                embed=discord.Embed(color=0xaa0000)
+                                embed.add_field(name="//Subroutine Error", value="Cannot roll more than 24 dice at a time.", inline=True)
+
+                                await message.channel.send(embed=embed)
+                        else:
+                                print("Rolling " + numbers[0] + " d" + numbers2[0]+ " for " + message.author.name + ".")
+                                embed=discord.Embed(title="Results of " + numbers[0] + " d" + ''.join(numbers2) + " for " + message.author.name + ".", color=0x00c600)
+                                embed.set_author(name=message.author.name,icon_url=message.author.avatar_url)
+                                while i < roll:
+                                        rolls.append(random.randint(1, dice))
+                                        total = total + int(rolls[i])
+                                        embed.add_field(name="//Roll #" + str(i+1), value=rolls[i], inline=True)
+                                        i += 1
+                                if modifier:
+                                        if modifier[0] == "-":
+                                                total = total - int(modifier[1:])
+                                        if modifier[0] == "+":
+                                                total = total + int(modifier[1:])
+                                        embed.add_field(name="//Modifier", value=modifier, inline=False)
+                                embed.set_footer(text="Total: " + str(total))
+
+                                await message.channel.send(embed=embed)
+                except:
+                        embed=discord.Embed(color=0xaa0000)
+                        embed.add_field(name="//Subroutine Error", value="Invalid input. Please check your input and try again.", inline=True)
+
+                        await message.channel.send(embed=embed)
+        await dndbot.process_commands(message)
+                
+
 ## Info Command (Primary Functionality)
 @dndbot.command(name='info',aliases=['i'])
 async def info(ctx, query, *subrecord):
@@ -172,61 +226,78 @@ async def info(ctx, query, *subrecord):
 
                 if ctx.author.dm_channel is None:
                         await ctx.author.create_dm()
-
-                embed=discord.Embed(color=0x00c600)
-                embed.add_field(name="//Retrieve Record", value="Success, retrieving known information about your query.", inline=True)
-
-                await ctx.send(embed=embed)
                 
-                if len(fileContents) > 1024:
-                        numOut = len(fileContents) / 1024
-                        i = 0
-                        index1 = 0
-                        index2 = 1024
-                        newContents = []
+                try:
+                        if len(fileContents) > 1024:
+                                numOut = len(fileContents) / 1024
+                                i = 0
+                                index1 = 0
+                                index2 = 1024
+                                newContents = []
 
-                        while i < math.ceil(numOut):
-                                newContents.append(fileContents[index1:index2])
-                                index1 = index1 + 1024
-                                index2 = index2 + 1024
+                                while i < math.ceil(numOut):
+                                        newContents.append(fileContents[index1:index2])
+                                        index1 = index1 + 1024
+                                        index2 = index2 + 1024
+                                        
+                                        if not (i + 1) > 1:     
+                                                embed=discord.Embed(title=name, color=0x00c600)
+                                                embed.set_author(name=bot.name,icon_url=bot.avatar_url)
+                                                embed.add_field(name="Known Info:", value=newContents[i], inline=True)
+                                                embed.set_footer(text="Last Updated: " + modified + " | Part 1 of " + str(math.ceil(numOut)))
                                 
-                                if not (i + 1) > 1:     
-                                        embed=discord.Embed(title=name, color=0x00c600)
-                                        embed.set_author(name=bot.name,icon_url=bot.avatar_url)
-                                        embed.add_field(name="Known Info:", value=newContents[i], inline=True)
-                                        embed.set_footer(text="Last Updated: " + modified + " | Part 1 of " + str(math.ceil(numOut)))
-                        
-                                        await ctx.author.send(embed=embed)
-                                else:
-                                        embed=discord.Embed(color=0x00c600)
-                                        embed.add_field(name="Continued:", value=newContents[i], inline=True)
-                                        embed.set_footer(text="Last Updated: " + modified + " | Part " + str(i + 1) + " of " + str(math.ceil(numOut)))
-                        
-                                        await ctx.author.send(embed=embed)
+                                                await ctx.author.send(embed=embed)
+                                        else:
+                                                embed=discord.Embed(color=0x00c600)
+                                                embed.add_field(name="Continued:", value=newContents[i], inline=True)
+                                                embed.set_footer(text="Last Updated: " + modified + " | Part " + str(i + 1) + " of " + str(math.ceil(numOut)))
+                                
+                                                await ctx.author.send(embed=embed)
 
-                                i += 1
-                else:
-                        embed=discord.Embed(title=name, color=0x00c600)
-                        embed.set_author(name=bot.name,icon_url=bot.avatar_url)
-                        embed.add_field(name="Known Info:", value=fileContents, inline=True)
-                        embed.set_footer(text="Last Updated: " + modified)
+                                        i += 1
+                        else:
+                                embed=discord.Embed(title=name, color=0x00c600)
+                                embed.set_author(name=bot.name,icon_url=bot.avatar_url)
+                                embed.add_field(name="Known Info:", value=fileContents, inline=True)
+                                embed.set_footer(text="Last Updated: " + modified)
 
-                        await ctx.author.send(embed=embed)
-                
-                print("Sent " + ctx.author.name + " the contents of the " + query + " record.")
+                                await ctx.author.send(embed=embed)
+                        
+                        print("Sent " + ctx.author.name + " the contents of the " + query + " record.")
+                        embed=discord.Embed(color=0x00c600)
+                        embed.add_field(name="//Retrieve Record", value="Success, retrieving known information about your query.", inline=True)
+
+                        await ctx.send(embed=embed)
+                except discord.Forbidden:
+                        embed=discord.Embed(color=0xaa0000)
+                        embed.add_field(name="//Subroutine Error", value="Failure, I cannot send you the retrieved record. Please activate DMs.", inline=True)
+
+                        await ctx.send(embed=embed)
+                        print("Caught exception, failed to send the contents of the record to " + ctx.author.name + ".")
         else:
                 embed=discord.Embed(color=0xaa0000)
                 embed.add_field(name="//Invalid Credentials", value="Failure, your party does not have access to that information yet!", inline=True)
 
                 await ctx.send(embed=embed)
 
+## Error handling for -info
+@info.error
+async def info_error(ctx, error):
+        if isinstance(error, commands.MissingRequiredArgument):
+                embed=discord.Embed(color=0xaa0000)
+                embed.add_field(name="//Subroutine Error", value="Failure, missing required argument.", inline=True)
+
+                await ctx.send(embed=embed)
+                print("Caught exception, couldn't find a query in " + ctx.author.name + "'s execution.")
+
+
 ## Help Command
 @dndbot.command(name='help',aliases=['h'])
 async def help(ctx, *command):
         if not command:
                 embed=discord.Embed(title="Available Commands", color=0x00c600)
-                embed.add_field(name="?info", value="Returns information on a specified record.", inline=False)
-                embed.add_field(name="?version", value="Shows the current version of the bot.", inline=False)
+                embed.add_field(name="-info", value="Returns information on a specified record.", inline=False)
+                embed.add_field(name="-version", value="Shows the current version of the bot.", inline=False)
                 embed.set_footer(text="Use ?help and a command name for more information on a specific command.")
                 
                 await ctx.send(embed=embed)
@@ -234,9 +305,15 @@ async def help(ctx, *command):
         if command:
                 commandName = ''.join(command)
                 if commandName == "info":
-                        embed=discord.Embed(title="?info - Basic query command, returns a record.", color=0x00c600)
-                        embed.add_field(name="Syntax", value="?info `query` `subrecord`", inline=False)
-                        embed.add_field(name="Notes", value="`query` must be \"surrounded by double quotations\" if it consists of multiple words.\n eg. ?info \"query name\"\n \n Subrecords only exist if specified in a main record file.", inline=False)
+                        embed=discord.Embed(title="-info - Basic query command, returns a record.", color=0x00c600)
+                        embed.add_field(name="Syntax", value="-info `query` `subrecord`", inline=False)
+                        embed.add_field(name="Notes", value="`query` must be \"surrounded by double quotations\" if it consists of multiple words.\n eg. -info \"query name\"\n \n Subrecords only exist if specified in a main record file.", inline=False)
+                        
+                        await ctx.send(embed=embed)
+                elif commandName == "r":
+                        embed=discord.Embed(title="-r - Dice roll command.", color=0x00c600)
+                        embed.add_field(name="Syntax", value="-r`#`d`#` `+/-#`", inline=False)
+                        embed.add_field(name="Example", value="-r2d20 +5", inline=False)
                         
                         await ctx.send(embed=embed)
                 else:
